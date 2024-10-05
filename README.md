@@ -13,9 +13,16 @@ The structures to be encoded and decoded can have elements that are Floats or on
 
 Encoding can also be partial, that is, only a subset of parameters in the struct need to be encoded/decoded.
 
-ModelObjectTools.jl is designed with the concepts of immutability and class invariants in mind. Specifically, instead of relying on mutable structures, the code works well with immutable structures where all components are also immutable. For example, vectors or matrices of parameters/equilibrium variables can be SVectors or SMatrix from the StaticArrays.jl package; or ReadOnlyArrays.
+ModelObjectTools.jl is designed with immutability and [class invariants](https://en.wikipedia.org/wiki/Class_invariant) in mind. In the context of a scientific model, an invariant could be:
+> An object of type ``Equilibrium'' always corresponds to a combination of parameters and endogenous variables that solves the equilibrium conditions of the model.
+A simple, but effective way to achieve that is:
+1. When creating the object, check that the candidate solution does satisfy the equilibrium conditions;
+2. Make it impossible to modify that object after it is created.
+Then, when you use that Equilibrium object as an input to another function (say, one that simulates moments to be compared with data moments), you can be sure that it does correspond to an equilibrium of the model.
 
-Below is a full working example of how ModelObjectTools.jl can be used in combination with StaticArrays to create an equilibrium-solving procedure that yields an immutable object that is guaranteed to hold a valid combination of model parameters and endogenous equilibrium variables (provided the equilibrium conditions are correctly implemented, of course):
+One way to achieve full immutability is to use SVectors or SMatrix from the StaticArrays.jl package to represent vectors and matrices. Where StaticArrays are not suitable, you can use ReadOnlyArrays.
+
+Below is a working example of how ModelObjectTools.jl can be used in combination with StaticArrays to create an equilibrium-solving procedure that yields an immutable Equilibrium object:
 
 ```
 using ModelObjectTools, StaticArrays, LeastSquaresOptim
