@@ -51,7 +51,7 @@ end
 #Now we define a structure that corresponds to an equilibrium 
 # of this model. The Equilibrium object can only be created 
 # if the equilibrium conditions are satisfied.
-const EQ_TOL = 1e-6
+const EQ_TOL = 1e-12
 
 struct Equilibrium
     p::Params
@@ -76,7 +76,8 @@ function solveForEquilibrium(p::Params; ini_guess=EqVars())
         ev_guess = modelObjectFromVector(EqVars, x)
         return equilibriumConditions(p, ev_guess)
     end
-    opt = optimize(optimizationObjFun, ini_x, LevenbergMarquardt())
+    opt = optimize(optimizationObjFun, ini_x, LevenbergMarquardt(), 
+        x_tol = EQ_TOL, f_tol = EQ_TOL, g_tol = EQ_TOL)
     ev_found = modelObjectFromVector(EqVars, opt.minimizer)
     return Equilibrium(p, ev_found)
 end
@@ -95,6 +96,18 @@ eq = solveForEquilibrium(myParams)
 
 #Display the equilibrium variables:
 showModelObject(eq.ev)
+
+#Now suppose we want to do comparative statics. We cannot 
+# modify the parameter structure p using something like:
+# p.beta = 5.0  #Throws an error!
+# because p is immutable. The solution is to generate another 
+# model object using the following function:
+myParams2 = modelObjectFromAnother(myParams, :beta => 5.0)
+
+eq2 = solveForEquilibrium(myParams2; ini_guess = eq.ev)
+
+#Display differences in the equilibrium variables:
+compareModelObjects(eq.ev, eq2.ev; verbose = true)
 
 #If one were to estimate that model, the vectorRepresentation()
 # and modelObjectFromVector() functions could also be used on the 
