@@ -55,20 +55,21 @@ function modelObjectFromAnother(base, changes::Dict{Symbol,<:Any})
     for (paramName, value) in changes
         if !(paramName in fieldnames(typeof(base)))
             throw(DomainError((paramName, value), "Input included symbols that are "
-                * "not settable fields of type $(typeof(base))."))
+                                                  *
+                                                  "not settable fields of type $(typeof(base))."))
         end
     end
-   #= if numChanges < length(changes) #Unused elements in the changes Dict
-        throw(DomainError(changes, "Input included symbols that are "
-            * "not settable fields of type $(typeof(base))."))
-    end=#
+    #= if numChanges < length(changes) #Unused elements in the changes Dict
+         throw(DomainError(changes, "Input included symbols that are "
+             * "not settable fields of type $(typeof(base))."))
+     end=#
     baseType = typeof(base)
     return baseType(allParams...)
 end
 
-const varInfo = Dict{Symbol, NamedTuple{(:lb, :ub, :normalization), Tuple{Float64, Float64, Symbol}}}()
+const varInfo = Dict{Symbol,NamedTuple{(:lb, :ub, :normalization),Tuple{Float64,Float64,Symbol}}}()
 
-    
+
 """
 addVarInfo(varName::Symbol; lb = -Inf, ub = Inf, normalization::Symbol = :none)
 
@@ -84,22 +85,22 @@ to be exactly 0.0 or more.
 If bounds are not needed, use the default options: lb = -Inf, ub = Inf.
 
 The allowed normalization values are:
- :sumToOne     (for unidimensional arrays)
- :firstIsZero  (for unidimensional arrays)
- :firstIsOne   (for unidimensional arrays)
- :ordered      (for unidimensional arrays or matrices. With matrices, it means
+- :sumToOne     (for unidimensional arrays)
+- :firstIsZero  (for unidimensional arrays)
+- :firstIsOne   (for unidimensional arrays)
+- :ordered      (for unidimensional arrays or matrices. With matrices, it means
                 the values must be increasing along columns)
- :none         (the default option)
+- :none         (the default option)
 """
-function addVarInfo(varName::Symbol; lb = -Inf, ub = Inf, normalization::Symbol = :none)
+function addVarInfo(varName::Symbol; lb=-Inf, ub=Inf, normalization::Symbol=:none)
     if !(normalization in [:none, :sumToOne, :firstIsZero, :firstIsOne, :ordered])
         throw(error("Invalid normalization input: $normalization."))
     end
-    val = (;lb=Float64(lb), ub=Float64(ub), normalization=normalization)
+    val = (; lb=Float64(lb), ub=Float64(ub), normalization=normalization)
     if haskey(varInfo, varName) && varInfo[varName] != val
-        throw(error("Tried to insert different varInfo for variable $varName:" 
-            * "\n Pre-existing value was $(varInfo[varName])"
-            * "\n Attempted to redefine as $val"))
+        throw(error("Tried to insert different varInfo for variable $varName:"
+                    * "\n Pre-existing value was $(varInfo[varName])"
+                    * "\n Attempted to redefine as $val"))
     else
         varInfo[varName] = val
     end
@@ -122,22 +123,22 @@ invalid value.
 """
 function checkValidity(m)
     for f in fieldnames(typeof(m))
-        val = getproperty(m,f)
+        val = getproperty(m, f)
         outOfBounds = any(val .<= varInfo[f].lb) ||
                       any(val .>= varInfo[f].ub)
-        notOrdered = val isa AbstractArray && 
-                                (varInfo[f].normalization == :ordered) &&
-                                !all(diff(val, dims=1) .>= MIN_DIFF_ORDERED_VARS)
-        notSumToOne = val isa AbstractArray && 
-            (varInfo[f].normalization == :sumToOne) &&
-            !isapprox(sum(val), 1.0, atol = TOL_PARAM_CHECKS)
-        firstNotZero = val isa AbstractArray && 
-            (varInfo[f].normalization == :firstIsZero) &&
-            !isapprox(val[1], 0.0, atol = TOL_PARAM_CHECKS)
-        firstNotOne = val isa AbstractArray && 
-            (varInfo[f].normalization == :firstIsOne) &&
-            !isapprox(val[1], 1.0, atol = TOL_PARAM_CHECKS)
-        if outOfBounds || notOrdered || notSumToOne || firstNotZero || firstNotOne         
+        notOrdered = val isa AbstractArray &&
+                     (varInfo[f].normalization == :ordered) &&
+                     !all(diff(val, dims=1) .>= MIN_DIFF_ORDERED_VARS)
+        notSumToOne = val isa AbstractArray &&
+                      (varInfo[f].normalization == :sumToOne) &&
+                      !isapprox(sum(val), 1.0, atol=TOL_PARAM_CHECKS)
+        firstNotZero = val isa AbstractArray &&
+                       (varInfo[f].normalization == :firstIsZero) &&
+                       !isapprox(val[1], 0.0, atol=TOL_PARAM_CHECKS)
+        firstNotOne = val isa AbstractArray &&
+                      (varInfo[f].normalization == :firstIsOne) &&
+                      !isapprox(val[1], 1.0, atol=TOL_PARAM_CHECKS)
+        if outOfBounds || notOrdered || notSumToOne || firstNotZero || firstNotOne
             throw(error("$val is not a valid input for $f."))
         end
     end
@@ -158,7 +159,7 @@ By default, it will encode all fields of the input structure. If
 only a subset of fields is desired, then set the fields keyword argument.
 """
 function vectorRepresentation(input;
-        fields = fieldnames(typeof(input)))
+    fields=fieldnames(typeof(input)))
     #Start with empty vector
     v = Vector{Float64}()
 
@@ -168,15 +169,15 @@ function vectorRepresentation(input;
         val = getproperty(input, f)
 
         #If first element is normalized, ignore it:
-        if val isa AbstractVector && length(val) > 1 && 
-            (varInfo[f].normalization == :firstIsZero || varInfo[f].normalization == :firstIsOne)
+        if val isa AbstractVector && length(val) > 1 &&
+           (varInfo[f].normalization == :firstIsZero || varInfo[f].normalization == :firstIsOne)
             val = val[2:end]
         end
 
         #Transforming to a variable with range (-Inf, Inf)
         function transformToUnbounded(inp, a, b)
             if !isinf(a) && !isinf(b) #Original range: (a,b)
-                y = log.( (inp .- a) ./ (b .- inp) )
+                y = log.((inp .- a) ./ (b .- inp))
             elseif !isinf(a) #Original range: (a,∞)
                 y = log.(inp .- a)
             elseif !isinf(b) #Original range: (-∞, b)
@@ -186,30 +187,30 @@ function vectorRepresentation(input;
             end
             return y
         end
-        
+
         #If it's an ordered vector (matrix), represent it as first element (row)
         # and then differences between consecutive elements (along rows)
-        if (varInfo[f].normalization == :ordered) && size(val,1) > 1
+        if (varInfo[f].normalization == :ordered) && size(val, 1) > 1
             transfVal = zeros(size(val))
-            for col = 1:size(val,2)
+            for col = 1:size(val, 2)
                 transfVal[1, col] = transformToUnbounded(val[1, col], varInfo[f].lb, varInfo[f].ub)
-                for row = 2:size(val,1)
+                for row = 2:size(val, 1)
                     transfVal[row, col] = transformToUnbounded(val[row, col],
-                                    val[row - 1, col] + MIN_DIFF_ORDERED_VARS, varInfo[f].ub)
+                        val[row-1, col] + MIN_DIFF_ORDERED_VARS, varInfo[f].ub)
                 end
-            end    
-        elseif (varInfo[f].normalization == :sumToOne)  
-            transfVal = zeros(length(val)-1)
+            end
+        elseif (varInfo[f].normalization == :sumToOne)
+            transfVal = zeros(length(val) - 1)
             remainingProb = 1.0
             for row in eachindex(transfVal)
                 ratio = val[row] / remainingProb
-                transfVal[row] = log(ratio/(1.0-ratio))
+                transfVal[row] = log(ratio / (1.0 - ratio))
                 remainingProb = remainingProb - val[row]
             end
         else
             transfVal = transformToUnbounded(val, varInfo[f].lb, varInfo[f].ub)
         end
-        
+
         #If it's a matrix, represent as a vector
         if length(transfVal) > size(transfVal, 1)
             transfVal = vec(transfVal)
@@ -231,25 +232,25 @@ parameter values created by the vectorRepresentation() function.
 The specific parameters being modified are given by the fields input.
 Other parameters come from the base input.
 """
-function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real}; 
-        fields = fieldnames(typeof(base)))
+function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
+    fields=fieldnames(typeof(base)))
 
     if any(isnan.(vectorInput))
         throw(DomainError(vectorInput, "Cannot have NaN's in vector input."))
     end
 
-    vectorInput[vectorInput .< -MAX_MAGNITUDE_ENCODED_VALS] .= -MAX_MAGNITUDE_ENCODED_VALS
-    vectorInput[vectorInput .>  MAX_MAGNITUDE_ENCODED_VALS] .=  MAX_MAGNITUDE_ENCODED_VALS
+    vectorInput[vectorInput.<-MAX_MAGNITUDE_ENCODED_VALS] .= -MAX_MAGNITUDE_ENCODED_VALS
+    vectorInput[vectorInput.>MAX_MAGNITUDE_ENCODED_VALS] .= MAX_MAGNITUDE_ENCODED_VALS
 
     #Start with empty dictionary which will map from parameter names to values.
-    paramChanges = Dict{Symbol, Any}()
+    paramChanges = Dict{Symbol,Any}()
 
     #Loop over each of the fields to be changed to populate the Dict.
     for f in fields
         #Get corresponding entries in the input vector
-        numElements = length(getproperty(base,f))
-        if varInfo[f].normalization == :sumToOne || 
-            varInfo[f].normalization == :firstIsZero || varInfo[f].normalization == :firstIsOne
+        numElements = length(getproperty(base, f))
+        if varInfo[f].normalization == :sumToOne ||
+           varInfo[f].normalization == :firstIsZero || varInfo[f].normalization == :firstIsOne
             numElements = numElements - 1
         end
         if length(vectorInput) < numElements
@@ -259,18 +260,18 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
         val = vectorInput[1:numElements]
 
         #Erase from input vector (so that previous block works in the next iteration)
-        vectorInput = vectorInput[(numElements + 1):end]
-        
+        vectorInput = vectorInput[(numElements+1):end]
+
         #Reshape to be of the original size, if needed
-        if size(getproperty(base,f), 1) < numElements #multidimensional
-            val = reshape(val, size(getproperty(base,f)))
-        end        
+        if size(getproperty(base, f), 1) < numElements #multidimensional
+            val = reshape(val, size(getproperty(base, f)))
+        end
 
         #De-transforming from a variable with range (-Inf, Inf)
         function detransformFromUnbounded(inp, a, b)
             if !isinf(a) && !isinf(b) #Original range: (a,b)
                 inp = exp.(inp)
-                y = (b.*inp .+ a) ./ (1 .+ inp)
+                y = (b .* inp .+ a) ./ (1 .+ inp)
             elseif !isinf(a) #Original range: (a,∞)
                 y = exp.(inp) .+ a
             elseif !isinf(b) #Original range: (-∞, b)
@@ -280,18 +281,18 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
             end
             return y
         end
-        
+
         #If ordered input, accumulate from (first, changes) format
-        if (varInfo[f].normalization == :ordered) && size(val,1) > 1
-            val[1,:] .= detransformFromUnbounded(val[1,:], varInfo[f].lb, varInfo[f].ub)
-            for row = 2:size(val,1), col = 1:size(val,2)
-                val[row, col] = detransformFromUnbounded(val[row, col], 
-                    val[row-1,col] + MIN_DIFF_ORDERED_VARS, varInfo[f].ub)
+        if (varInfo[f].normalization == :ordered) && size(val, 1) > 1
+            val[1, :] .= detransformFromUnbounded(val[1, :], varInfo[f].lb, varInfo[f].ub)
+            for row = 2:size(val, 1), col = 1:size(val, 2)
+                val[row, col] = detransformFromUnbounded(val[row, col],
+                    val[row-1, col] + MIN_DIFF_ORDERED_VARS, varInfo[f].ub)
             end
         elseif varInfo[f].normalization == :sumToOne
             remainingProb = 1.0
             for row in eachindex(val)
-                val[row] = remainingProb/(1+exp(-val[row]))
+                val[row] = remainingProb / (1 + exp(-val[row]))
                 remainingProb = remainingProb - val[row]
             end
             val = vcat(val, remainingProb)
@@ -300,7 +301,7 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
         end
 
         #If we get an inf, replace with a large number
-        for row = 1:size(val,1), col = 1:size(val,2)
+        for row = 1:size(val, 1), col = 1:size(val, 2)
             if isinf(val[row, col])
                 if val[row, col] > 0
                     val[row, col] = prevfloat(Inf)
@@ -309,9 +310,9 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
                 end
             end
         end
-        
+
         #Change type from vector to number if necessary
-        if getproperty(base,f) isa Number
+        if getproperty(base, f) isa Number
             val = val[1]
         end
 
@@ -345,8 +346,8 @@ parameter values created by the vectorRepresentation() function.
 The specific parameters being modified are given by the fields input.
 Other parameters come from the the default values for type baseType.
 """
-function modelObjectFromVector(baseType::Type, vectorInput::AbstractVector{<:Real}; 
-        fields = fieldnames(baseType))
+function modelObjectFromVector(baseType::Type, vectorInput::AbstractVector{<:Real};
+    fields=fieldnames(baseType))
     return modelObjectFromVector(baseType(), vectorInput; fields)
 end
 
@@ -418,7 +419,7 @@ function compareModelObjects(mo1, mo2; tol=TOL_PARAM_CHECKS, verbose=false)
     if typeof(mo1) != typeof(mo2)
         throw(error("Can only compare model objects of the same type."))
     end
-    differences = Vector{Tuple{Symbol, Any}}()
+    differences = Vector{Tuple{Symbol,Any}}()
     max_abs_diff = 0.0
     str = ""
     fields = fieldnames(typeof(mo1))
@@ -482,7 +483,7 @@ Stacktrace:
 ```
 """
 macro modef(expr)
-    
+
     isexpr(expr, :struct) || error("Invalid usage of @modef")
     _, T, fieldsblock = expr.args
     if T isa Expr && T.head === :<:
@@ -502,9 +503,9 @@ macro modef(expr)
 
     #Add explicit default creator that checks validity of inputs 
     body = Expr(:block, #__source__, 
-                Expr(:(=), :mo, Expr(:call, :new, fnames...)),
-                Expr(:call, :checkValidity, :mo),
-                Expr(:return, :mo))
+        Expr(:(=), :mo, Expr(:call, :new, fnames...)),
+        Expr(:call, :checkValidity, :mo),
+        Expr(:return, :mo))
     functionExpr = Expr(:function, Expr(:call, T, fnames...), body)
     push!(expr.args[3].args, functionExpr)
 
@@ -514,7 +515,7 @@ macro modef(expr)
         T_no_esc = unescape(T)
         if T_no_esc isa Symbol
             sig = Expr(:call, esc(T), Expr(:parameters, parameters...))
-            body = Expr(:block, __source__, 
+            body = Expr(:block, __source__,
                 Expr(:(=), :mo, Expr(:call, esc(T), fnames...)),
                 Expr(:return, :mo))
             kwdefs = Expr(:function, sig, body)
@@ -601,7 +602,7 @@ Peel away `:escape` expressions and redundant block expressions (see
 function unescape(@nospecialize ex)
     ex = unblock(ex)
     while isexpr(ex, :escape) || isexpr(ex, :var"hygienic-scope")
-       ex = unblock(ex.args[1])
+        ex = unblock(ex.args[1])
     end
     return ex
 end

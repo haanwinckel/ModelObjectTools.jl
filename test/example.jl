@@ -1,23 +1,3 @@
-# ModelObjectTools
-
-[![Build Status](https://github.com/haanwinckel/ModelObjectTools.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/haanwinckel/ModelObjectTools.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/haanwinckel/ModelObjectTools.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/haanwinckel/ModelObjectTools.jl)
-
-This package provides utilities to help with equilibrium-solving and estimation of models, by allowing for easy encoding and decoding of structures holding model variables into vectors of real numbers---which can be used as choice variables in optimization procedures.
-
-The structures to be encoded and decoded can have elements that are Floats or one- or two-dimensional arrays of Floats. The encoding procedures easily deal with common theoretical restrictions on the variables, such as:
-- Lower and upper bounds;
-- Requiring vectors to be strictly increasing (or each column of a matrix to be strictly increasing);
-- The first element of a vector needs to be zero, or one;
-- All elements in a vector must add up to one.
-
-Encoding can also be partial, that is, only a subset of parameters in the struct need to be encoded/decoded.
-
-ModelObjectTools.jl is designed with the concepts of immutability and class invariants in mind. Specifically, instead of relying on mutable structures, the code works well with immutable structures where all components are also immutable. For example, vectors or matrices of parameters/equilibrium variables can be SVectors or SMatrix from the StaticArrays.jl package; or ReadOnlyArrays.
-
-Below is a full working example of how ModelObjectTools.jl can be used in combination with StaticArrays to create an equilibrium-solving procedure that yields an immutable object that is guaranteed to hold a valid combination of model parameters and endogenous equilibrium variables (provided the equilibrium conditions are correctly implemented, of course):
-
-```
 using ModelObjectTools, StaticArrays, LeastSquaresOptim
 
 #Structure representing model parameters:
@@ -123,4 +103,3 @@ showModelObject(eq.ev)
 #And if only a subset of parameters is being estimated, that's fine;
 # those functions have an optional ``fields'' requirement that can 
 # be used to select the parameters being estimated.
-```
