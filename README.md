@@ -19,6 +19,7 @@ ModelObjectTools.jl is designed with immutability and [class invariants](https:/
 A simple, but effective way to achieve that is:
 1. When creating the object, check that the candidate solution does satisfy the equilibrium conditions;
 2. Make it impossible to modify that object after it is created.
+
 Then, when you use that Equilibrium object as an input to another function (say, one that simulates moments to be compared with data moments), you can be sure that it does correspond to an equilibrium of the model.
 
 One way to achieve full immutability is to use SVectors or SMatrix from the StaticArrays.jl package to represent vectors and matrices. Where StaticArrays are not suitable, you can use ReadOnlyArrays.
