@@ -15,6 +15,7 @@ Encoding can also be partial, that is, only a subset of parameters in the struct
 
 ModelObjectTools.jl is designed with immutability and [class invariants](https://en.wikipedia.org/wiki/Class_invariant) in mind. In the context of a scientific model, an invariant could be:
 > An object of type ``Equilibrium'' always corresponds to a combination of parameters and endogenous variables that solves the equilibrium conditions of the model.
+
 A simple, but effective way to achieve that is:
 1. When creating the object, check that the candidate solution does satisfy the equilibrium conditions;
 2. Make it impossible to modify that object after it is created.
