@@ -11,6 +11,12 @@ The structures to be encoded and decoded can have elements that are Floats or on
 - The first element of a vector needs to be zero, or one;
 - All elements in a vector must add up to one.
 
+Installation:
+```
+using Pkg
+Pkg.add(url="https://github.com/haanwinckel/ModelObjectTools.jl.git")
+```
+
 Example:
 ```
 using ModelObjectTools
