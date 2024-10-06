@@ -1,8 +1,9 @@
 
 using Base: isexpr
 
-const TOL_PARAM_CHECKS = 1e-12
-const MAX_MAGNITUDE_ENCODED_VALS = 1e10
+const TOL_PARAM_CHECKS = 1e-15
+const MAX_MAGNITUDE_ENCODED_VALS = log(prevfloat(Inf) / 1e10) 
+#Maximum value x such that exp(x) or exp(-x) makes sense numerically.
 const MIN_DIFF_ORDERED_VARS = 1e-10
 
 
@@ -124,11 +125,11 @@ invalid value.
 function checkValidity(m)
     for f in fieldnames(typeof(m))
         val = getproperty(m, f)
-        outOfBounds = any(val .<= varInfo[f].lb) ||
-                      any(val .>= varInfo[f].ub)
+        outOfBounds = any(val .< varInfo[f].lb - TOL_PARAM_CHECKS) ||
+                      any(val .> varInfo[f].ub + TOL_PARAM_CHECKS)
         notOrdered = val isa AbstractArray &&
                      (varInfo[f].normalization == :ordered) &&
-                     !all(diff(val, dims=1) .>= MIN_DIFF_ORDERED_VARS)
+                     !all(diff(val, dims=1) .>= -TOL_PARAM_CHECKS)
         notSumToOne = val isa AbstractArray &&
                       (varInfo[f].normalization == :sumToOne) &&
                       !isapprox(sum(val), 1.0, atol=TOL_PARAM_CHECKS)
@@ -196,7 +197,7 @@ function vectorRepresentation(input;
                 transfVal[1, col] = transformToUnbounded(val[1, col], varInfo[f].lb, varInfo[f].ub)
                 for row = 2:size(val, 1)
                     transfVal[row, col] = transformToUnbounded(val[row, col],
-                        val[row-1, col] + MIN_DIFF_ORDERED_VARS, varInfo[f].ub)
+                        val[row-1, col], varInfo[f].ub)
                 end
             end
         elseif (varInfo[f].normalization == :sumToOne)
@@ -235,12 +236,50 @@ Other parameters come from the base input.
 function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
     fields=fieldnames(typeof(base)))
 
+    #Auxiliary function
+    #De-transforming from a variable with range (-Inf, Inf)
+    function detransformFromUnbounded(inp, a, b)
+        y = fill(NaN, size(inp))
+        if !isinf(a) && !isinf(b) #Original range: (a,b)
+            for i in eachindex(inp)
+                if inp[i] > MAX_MAGNITUDE_ENCODED_VALS
+                    y[i] = b
+                elseif inp[i] < -MAX_MAGNITUDE_ENCODED_VALS #Negative infinity
+                    y[i] = a
+                else
+                    tmp = exp(inp[i])
+                    y[i] = (b * tmp + a) / (1 + tmp)
+                end
+            end 
+        elseif !isinf(a) #Original range: (a,∞)
+            for i in eachindex(inp)
+                if inp[i] < -MAX_MAGNITUDE_ENCODED_VALS
+                    y[i] = a
+                else
+                    y[i] = exp(inp[i]) + a
+                end
+            end
+        elseif !isinf(b) #Original range: (-∞, b)
+            for i in eachindex(inp)
+                if inp[i]> MAX_MAGNITUDE_ENCODED_VALS
+                    y[i] = b
+                else
+                    y[i] = b - exp(-inp[i])
+                end
+            end
+        else #Otherwise, no action required!
+            y .= inp
+        end
+        if inp isa Number 
+            return y[1]
+        else
+            return y
+        end
+    end
+
     if any(isnan.(vectorInput))
         throw(DomainError(vectorInput, "Cannot have NaN's in vector input."))
     end
-
-    vectorInput[vectorInput.<-MAX_MAGNITUDE_ENCODED_VALS] .= -MAX_MAGNITUDE_ENCODED_VALS
-    vectorInput[vectorInput.>MAX_MAGNITUDE_ENCODED_VALS] .= MAX_MAGNITUDE_ENCODED_VALS
 
     #Start with empty dictionary which will map from parameter names to values.
     paramChanges = Dict{Symbol,Any}()
@@ -267,27 +306,15 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
             val = reshape(val, size(getproperty(base, f)))
         end
 
-        #De-transforming from a variable with range (-Inf, Inf)
-        function detransformFromUnbounded(inp, a, b)
-            if !isinf(a) && !isinf(b) #Original range: (a,b)
-                inp = exp.(inp)
-                y = (b .* inp .+ a) ./ (1 .+ inp)
-            elseif !isinf(a) #Original range: (a,∞)
-                y = exp.(inp) .+ a
-            elseif !isinf(b) #Original range: (-∞, b)
-                y = b .- exp.(-inp)
-            else #Otherwise, no action required!
-                y = inp
-            end
-            return y
-        end
-
         #If ordered input, accumulate from (first, changes) format
         if (varInfo[f].normalization == :ordered) && size(val, 1) > 1
             val[1, :] .= detransformFromUnbounded(val[1, :], varInfo[f].lb, varInfo[f].ub)
             for row = 2:size(val, 1), col = 1:size(val, 2)
                 val[row, col] = detransformFromUnbounded(val[row, col],
-                    val[row-1, col] + MIN_DIFF_ORDERED_VARS, varInfo[f].ub)
+                    val[row-1, col], varInfo[f].ub)
+                if row < size(val, 1) && isinf(val[row, col]) && val[row, col] > 0.0
+                    val[row, col] = exp(MAX_MAGNITUDE_ENCODED_VALS + row)
+                end
             end
         elseif varInfo[f].normalization == :sumToOne
             remainingProb = 1.0
@@ -415,7 +442,7 @@ Compares two model objects field by field. Output has the format
 the observed differences and max_abs_diff is the maximum absolute
 value of differences across all fields.
 """
-function compareModelObjects(mo1, mo2; tol=TOL_PARAM_CHECKS, verbose=false)
+function compareModelObjects(mo1, mo2; tol=TOL_PARAM_CHECKS*10, verbose=false)
     if typeof(mo1) != typeof(mo2)
         throw(error("Can only compare model objects of the same type."))
     end

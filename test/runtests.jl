@@ -3,7 +3,7 @@ using Test
 
 @testset "ModelObjectTools.jl" begin
 
-    #Create fake varianles for Testing
+    #Create fake variables for Testing
     scalarVarLb = 1.1;
     scalarVarUb = 2.5;
     addVarInfo(:scalarVar; lb = scalarVarLb, ub = scalarVarUb)
@@ -113,10 +113,34 @@ using Test
         m = MyStruct()
         x = vectorRepresentation(m)
         for i in eachindex(x)
-            for change in [-10, -0.1, 0.1, 10]
+            for change in [nextfloat(-Inf), -100, -5, -0.1, 
+                            0.1, 5, 100, prevfloat(Inf)]
+                println((i, change))
                 x2 = copy(x)
                 x2[i] = x[i] + change
-                @test (m2 = modelObjectFromVector(m, x2)) isa MyStruct
+                @test modelObjectFromVector(m, x2) isa MyStruct
+
+                #Will also test successful recovery from reverting the change 
+                # in x; but that only works for ``reasonable'' values of the 
+                # change in x.
+                if abs(change) <= 10
+                    m2 = modelObjectFromVector(m, x2)
+                    x3 = vectorRepresentation(m2)
+                    x3[i] = x3[i] - change 
+                    m3 = modelObjectFromVector(m2, x3)
+                    @test objectApprox(m, m3)
+                end                
+                #The design principle here is: 
+                # It should be possible to create objects from any vector of 
+                # numbers, even very large (but finite) numbers, because optimization 
+                # procedures may often generate such inputs. But making large changes
+                # to x may lead to e.g., variables hitting exactly their lower or 
+                # upper bounds, and then the vector representation will have infinite
+                # values (such that ``reverting'' the original change is not possible).
+                # This is not an issue in practice, provided the starting point 
+                # in the optimization procedure is not too close to the bounds 
+                # (or, for ordered vectors, if the starting value does not have 
+                # adjacent values too close to one another).
             end
         end
     end
