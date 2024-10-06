@@ -143,7 +143,7 @@ eq = solveForEquilibrium(myParams)
 showModelObject(eq.ev)
 
 #Now suppose we want to do comparative statics. We cannot 
-# modify the parameter structure p using something like:
+# modify the parameter structure using something like:
 # myParams.beta = 5.0  #Throws an error!
 # because myParams is immutable. The solution is to generate another 
 # model object using the following function:
