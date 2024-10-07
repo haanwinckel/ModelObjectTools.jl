@@ -2,7 +2,7 @@
 using Base: isexpr
 
 const TOL_PARAM_CHECKS = 1e-15
-const MAX_MAGNITUDE_ENCODED_VALS = log(prevfloat(Inf) / 1e10) 
+const MAX_MAGNITUDE_ENCODED_VALS = log(prevfloat(Inf) / 1e10)
 #Maximum value x such that exp(x) or exp(-x) makes sense numerically.
 const MIN_DIFF_ORDERED_VARS = 1e-10
 
@@ -68,7 +68,7 @@ function modelObjectFromAnother(base, changes::Dict{Symbol,<:Any})
     return baseType(allParams...)
 end
 
-const varInfo = Dict{Symbol,NamedTuple{(:lb, :ub, :normalization),Tuple{Float64,Float64,Symbol}}}()
+const modelObjectToolsVarInfo = Dict{Symbol,NamedTuple{(:lb, :ub, :normalization),Tuple{Float64,Float64,Symbol}}}()
 
 
 """
@@ -98,12 +98,12 @@ function addVarInfo(varName::Symbol; lb=-Inf, ub=Inf, normalization::Symbol=:non
         throw(error("Invalid normalization input: $normalization."))
     end
     val = (; lb=Float64(lb), ub=Float64(ub), normalization=normalization)
-    if haskey(varInfo, varName) && varInfo[varName] != val
-        throw(error("Tried to insert different varInfo for variable $varName:"
-                    * "\n Pre-existing value was $(varInfo[varName])"
+    if haskey(modelObjectToolsVarInfo, varName) && modelObjectToolsVarInfo[varName] != val
+        throw(error("Tried to insert different modelObjectToolsVarInfo for variable $varName:"
+                    * "\n Pre-existing value was $(modelObjectToolsVarInfo[varName])"
                     * "\n Attempted to redefine as $val"))
     else
-        varInfo[varName] = val
+        modelObjectToolsVarInfo[varName] = val
     end
 end
 
@@ -113,8 +113,8 @@ checkValidity(m)
 
 Checks that either parameters or endogenous variables lie within 
 bounds and satisfy other normalizations/constraints embedded in the
-varInfo dictionary. Every component of the structure m must be a 
-variable registered in the varInfo dictionary, using the addVarInfo()
+modelObjectToolsVarInfo dictionary. Every component of the structure m must be a 
+variable registered in the modelObjectToolsVarInfo dictionary, using the addVarInfo()
 function.
 
 Returns a tuple where the first element is a boolean indicating
@@ -125,19 +125,19 @@ invalid value.
 function checkValidity(m)
     for f in fieldnames(typeof(m))
         val = getproperty(m, f)
-        outOfBounds = any(val .< varInfo[f].lb - TOL_PARAM_CHECKS) ||
-                      any(val .> varInfo[f].ub + TOL_PARAM_CHECKS)
+        outOfBounds = any(val .< modelObjectToolsVarInfo[f].lb - TOL_PARAM_CHECKS) ||
+                      any(val .> modelObjectToolsVarInfo[f].ub + TOL_PARAM_CHECKS)
         notOrdered = val isa AbstractArray &&
-                     (varInfo[f].normalization == :ordered) &&
+                     (modelObjectToolsVarInfo[f].normalization == :ordered) &&
                      !all(diff(val, dims=1) .>= -TOL_PARAM_CHECKS)
         notSumToOne = val isa AbstractArray &&
-                      (varInfo[f].normalization == :sumToOne) &&
+                      (modelObjectToolsVarInfo[f].normalization == :sumToOne) &&
                       !isapprox(sum(val), 1.0, atol=TOL_PARAM_CHECKS)
         firstNotZero = val isa AbstractArray &&
-                       (varInfo[f].normalization == :firstIsZero) &&
+                       (modelObjectToolsVarInfo[f].normalization == :firstIsZero) &&
                        !isapprox(val[1], 0.0, atol=TOL_PARAM_CHECKS)
         firstNotOne = val isa AbstractArray &&
-                      (varInfo[f].normalization == :firstIsOne) &&
+                      (modelObjectToolsVarInfo[f].normalization == :firstIsOne) &&
                       !isapprox(val[1], 1.0, atol=TOL_PARAM_CHECKS)
         if outOfBounds || notOrdered || notSumToOne || firstNotZero || firstNotOne
             throw(error("$val is not a valid input for $f."))
@@ -154,7 +154,7 @@ Creates a vector of real values that represents either
 model parameters or equilibrium variables. This vector can be used for
 optimization without the need for constraints; all elements can vary
 in (-Inf, Inf) while keeping the values within bounds defined 
-by varInfo.
+by modelObjectToolsVarInfo.
 
 By default, it will encode all fields of the input structure. If
 only a subset of fields is desired, then set the fields keyword argument.
@@ -171,7 +171,7 @@ function vectorRepresentation(input;
 
         #If first element is normalized, ignore it:
         if val isa AbstractVector && length(val) > 1 &&
-           (varInfo[f].normalization == :firstIsZero || varInfo[f].normalization == :firstIsOne)
+           (modelObjectToolsVarInfo[f].normalization == :firstIsZero || modelObjectToolsVarInfo[f].normalization == :firstIsOne)
             val = val[2:end]
         end
 
@@ -191,16 +191,17 @@ function vectorRepresentation(input;
 
         #If it's an ordered vector (matrix), represent it as first element (row)
         # and then differences between consecutive elements (along rows)
-        if (varInfo[f].normalization == :ordered) && size(val, 1) > 1
+        if (modelObjectToolsVarInfo[f].normalization == :ordered) && size(val, 1) > 1
             transfVal = zeros(size(val))
             for col = 1:size(val, 2)
-                transfVal[1, col] = transformToUnbounded(val[1, col], varInfo[f].lb, varInfo[f].ub)
+                transfVal[1, col] = transformToUnbounded(val[1, col],
+                    modelObjectToolsVarInfo[f].lb, modelObjectToolsVarInfo[f].ub)
                 for row = 2:size(val, 1)
                     transfVal[row, col] = transformToUnbounded(val[row, col],
-                        val[row-1, col], varInfo[f].ub)
+                        val[row-1, col], modelObjectToolsVarInfo[f].ub)
                 end
             end
-        elseif (varInfo[f].normalization == :sumToOne)
+        elseif (modelObjectToolsVarInfo[f].normalization == :sumToOne)
             transfVal = zeros(length(val) - 1)
             remainingProb = 1.0
             for row in eachindex(transfVal)
@@ -209,7 +210,8 @@ function vectorRepresentation(input;
                 remainingProb = remainingProb - val[row]
             end
         else
-            transfVal = transformToUnbounded(val, varInfo[f].lb, varInfo[f].ub)
+            transfVal = transformToUnbounded(val, modelObjectToolsVarInfo[f].lb,
+                modelObjectToolsVarInfo[f].ub)
         end
 
         #If it's a matrix, represent as a vector
@@ -250,7 +252,7 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
                     tmp = exp(inp[i])
                     y[i] = (b * tmp + a) / (1 + tmp)
                 end
-            end 
+            end
         elseif !isinf(a) #Original range: (a,∞)
             for i in eachindex(inp)
                 if inp[i] < -MAX_MAGNITUDE_ENCODED_VALS
@@ -261,7 +263,7 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
             end
         elseif !isinf(b) #Original range: (-∞, b)
             for i in eachindex(inp)
-                if inp[i]> MAX_MAGNITUDE_ENCODED_VALS
+                if inp[i] > MAX_MAGNITUDE_ENCODED_VALS
                     y[i] = b
                 else
                     y[i] = b - exp(-inp[i])
@@ -270,7 +272,7 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
         else #Otherwise, no action required!
             y .= inp
         end
-        if inp isa Number 
+        if inp isa Number
             return y[1]
         else
             return y
@@ -288,8 +290,9 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
     for f in fields
         #Get corresponding entries in the input vector
         numElements = length(getproperty(base, f))
-        if varInfo[f].normalization == :sumToOne ||
-           varInfo[f].normalization == :firstIsZero || varInfo[f].normalization == :firstIsOne
+        if modelObjectToolsVarInfo[f].normalization == :sumToOne ||
+           modelObjectToolsVarInfo[f].normalization == :firstIsZero ||
+           modelObjectToolsVarInfo[f].normalization == :firstIsOne
             numElements = numElements - 1
         end
         if length(vectorInput) < numElements
@@ -307,16 +310,17 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
         end
 
         #If ordered input, accumulate from (first, changes) format
-        if (varInfo[f].normalization == :ordered) && size(val, 1) > 1
-            val[1, :] .= detransformFromUnbounded(val[1, :], varInfo[f].lb, varInfo[f].ub)
+        if (modelObjectToolsVarInfo[f].normalization == :ordered) && size(val, 1) > 1
+            val[1, :] .= detransformFromUnbounded(val[1, :],
+                modelObjectToolsVarInfo[f].lb, modelObjectToolsVarInfo[f].ub)
             for row = 2:size(val, 1), col = 1:size(val, 2)
                 val[row, col] = detransformFromUnbounded(val[row, col],
-                    val[row-1, col], varInfo[f].ub)
+                    val[row-1, col], modelObjectToolsVarInfo[f].ub)
                 if row < size(val, 1) && isinf(val[row, col]) && val[row, col] > 0.0
                     val[row, col] = exp(MAX_MAGNITUDE_ENCODED_VALS + row)
                 end
             end
-        elseif varInfo[f].normalization == :sumToOne
+        elseif modelObjectToolsVarInfo[f].normalization == :sumToOne
             remainingProb = 1.0
             for row in eachindex(val)
                 val[row] = remainingProb / (1 + exp(-val[row]))
@@ -324,7 +328,8 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
             end
             val = vcat(val, remainingProb)
         else
-            val = detransformFromUnbounded(val, varInfo[f].lb, varInfo[f].ub)
+            val = detransformFromUnbounded(val, modelObjectToolsVarInfo[f].lb,
+                modelObjectToolsVarInfo[f].ub)
         end
 
         #If we get an inf, replace with a large number
@@ -344,9 +349,9 @@ function modelObjectFromVector(base, vectorInput::AbstractVector{<:Real};
         end
 
         #Add normalization
-        if varInfo[f].normalization == :firstIsZero
+        if modelObjectToolsVarInfo[f].normalization == :firstIsZero
             val = vcat(0.0, val)
-        elseif varInfo[f].normalization == :firstIsOne
+        elseif modelObjectToolsVarInfo[f].normalization == :firstIsOne
             val = vcat(1.0, val)
         end
 
@@ -442,7 +447,7 @@ Compares two model objects field by field. Output has the format
 the observed differences and max_abs_diff is the maximum absolute
 value of differences across all fields.
 """
-function compareModelObjects(mo1, mo2; tol=TOL_PARAM_CHECKS*10, verbose=false)
+function compareModelObjects(mo1, mo2; tol=TOL_PARAM_CHECKS * 10, verbose=false)
     if typeof(mo1) != typeof(mo2)
         throw(error("Can only compare model objects of the same type."))
     end

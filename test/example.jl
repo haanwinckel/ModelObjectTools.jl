@@ -7,7 +7,7 @@ using ModelObjectTools, StaticArrays, LeastSquaresOptim
 end
 addVarInfo(:beta)
 addVarInfo(:gamma; lb=0.0, ub=2.0, normalization=:firstIsOne)
-addVarInfo(:rho;   lb=0.0, normalization=:sumToOne)
+addVarInfo(:rho; lb=0.0, normalization=:sumToOne)
 
 @modef struct EqVars
     x::SVector{2,Float64} = [1.0, 2.0]
@@ -51,8 +51,8 @@ function solveForEquilibrium(p::Params; ini_guess=EqVars())
         return equilibriumConditions(p, ev_guess)
     end
 
-    opt = optimize(optimizationObjFun, ini_x, LevenbergMarquardt(), 
-        x_tol = EQ_TOL, f_tol = EQ_TOL, g_tol = EQ_TOL)
+    opt = optimize(optimizationObjFun, ini_x, LevenbergMarquardt(),
+        x_tol=EQ_TOL, f_tol=EQ_TOL, g_tol=EQ_TOL)
     ev_found = modelObjectFromVector(EqVars, opt.minimizer)
     return Equilibrium(p, ev_found)
 end
@@ -80,7 +80,7 @@ showModelObject(eq.ev)
 
 myParams2 = modelObjectFromAnother(myParams, :beta => 5.0)
 
-eq2 = solveForEquilibrium(myParams2; ini_guess = eq.ev)
+eq2 = solveForEquilibrium(myParams2; ini_guess=eq.ev)
 
 #Display differences in the equilibrium variables:
-compareModelObjects(eq.ev, eq2.ev; verbose = true)
+compareModelObjects(eq.ev, eq2.ev; verbose=true)
