@@ -7,7 +7,7 @@ This package provides utilities to help with equilibrium-solving and estimation 
 
 The structures to be encoded can be composed of scalar elements, vectors, and/or matrices. The encoding procedures deal with these common theoretical restrictions on the variables:
 - Lower and upper bounds;
-- Requiring vectors to be strictly increasing (or each column of a matrix to be strictly increasing);
+- Requiring vectors to be weakly increasing (or each column of a matrix to be weakly increasing);
 - The first element of a vector needs to be zero (or, alternatively, one);
 - All elements in a vector must add up to one.
 
