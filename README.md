@@ -3,12 +3,12 @@
 [![Build Status](https://github.com/haanwinckel/ModelObjectTools.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/haanwinckel/ModelObjectTools.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/haanwinckel/ModelObjectTools.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/haanwinckel/ModelObjectTools.jl)
 
-This package provides utilities to help with equilibrium-solving and estimation of models, by allowing for easy encoding and decoding of structures holding model variables into vectors of real numbers---which can be used as choice variables in optimization procedures.
+This package provides utilities to help with equilibrium-solving and estimation of scientific models. Specifically, it helps encode/decode structs with model variables into/from vectors of real numbers ranging from minus infinity to plus infinity. One can then use those vectors as the choice variable in unconstrained optimization procedures, while not having to keep track of the encoding/decoding details.
 
-The structures to be encoded and decoded can have elements that are Floats or one- or two-dimensional arrays of Floats. The encoding procedures easily deal with common theoretical restrictions on the variables, such as:
+The structures to be encoded can be composed of scalar elements, vectors, and/or matrices. The encoding procedures deal with these common theoretical restrictions on the variables:
 - Lower and upper bounds;
 - Requiring vectors to be strictly increasing (or each column of a matrix to be strictly increasing);
-- The first element of a vector needs to be zero, or one;
+- The first element of a vector needs to be zero (or, alternatively, one);
 - All elements in a vector must add up to one.
 
 Installation:
