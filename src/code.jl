@@ -76,12 +76,7 @@ addVarInfo(varName::Symbol; lb = -Inf, ub = Inf, normalization::Symbol = :none)
 
 Use this function to register the variable names that will correspond 
 to fields in the structures defining model objects (parameter sets, sets of 
-endogenous variables, etc.).
-
-For each variable, the allowed range of values is (lb, ub).
-To allow the extreme points in the range, you may use a slightly smaller/larger 
-value. For example, setting lb = prevfloat(0.0) will allow the parameter 
-to be exactly 0.0 or more.
+endogenous variables, etc.). For each variable, the allowed range of values is [lb, ub].
 
 If bounds are not needed, use the default options: lb = -Inf, ub = Inf.
 
