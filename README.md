@@ -11,13 +11,15 @@ The structures to be encoded can be composed of scalar elements, vectors, and/or
 - The first element of a vector needs to be zero (or, alternatively, one);
 - All elements in a vector must add up to one.
 
-Installation:
+## Installation
+
 ```
 using Pkg
 Pkg.add(url="https://github.com/haanwinckel/ModelObjectTools.jl.git")
 ```
 
-Example:
+## Quick and easy example:
+
 ```
 using ModelObjectTools
 
@@ -58,7 +60,9 @@ new_st = modelObjectFromVector(MyStruct, x)
 
 Encoding can also be partial, that is, only a subset of parameters in the struct need to be encoded/decoded.
 
-ModelObjectTools.jl is designed with immutability and [class invariants](https://en.wikipedia.org/wiki/Class_invariant) in mind. Here is an example of an useful class invariant for scientific models:
+## Immutable structs and class invariants
+
+ModelObjectTools.jl is designed with immutability and [class invariants](https://en.wikipedia.org/wiki/Class_invariant) in mind. Here is an example of a useful class invariant for scientific models:
 > An object of type ``Equilibrium'' always corresponds to a combination of parameters and endogenous variables that solves the equilibrium conditions of the model.
 
 A simple, but effective way to achieve that is:
@@ -67,7 +71,7 @@ A simple, but effective way to achieve that is:
 
 Then, when you use that Equilibrium object as an input to another function (say, one that simulates moments to be compared with data moments), you can be sure that it does correspond to an equilibrium of the model.
 
-One way to make structures in Julia fully immutable is to use SVector or SMatrix from the StaticArrays package.jl package to represent vectors and matrices. Where StaticArrays are not suitable, you can use ReadOnlyArrays.
+One way to make structures in Julia fully immutable is to use SVector or SMatrix from the [StaticArrays](https://github.com/JuliaArrays/StaticArrays.jl) package to represent vectors and matrices. Where StaticArrays are not suitable, you can use [ReadOnlyArrays](https://github.com/JuliaArrays/ReadOnlyArrays.jl).
 
 **Note**: ModelObjectTools.jl is *not* designed for performance. It is primarily aimed at applications where objective function in the optimization procedure is somewhat costly, such that the encoding/decoding of variables is a small part of the computation.
 
