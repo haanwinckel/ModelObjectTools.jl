@@ -13,14 +13,14 @@ The structures to be encoded can be composed of scalar elements, vectors, and/or
 
 ## Installation
 
-```
+```julia
 using Pkg
 Pkg.add(url="https://github.com/haanwinckel/ModelObjectTools.jl.git")
 ```
 
 ## Quick and easy example:
 
-```
+```julia
 using ModelObjectTools
 
 @modef struct MyStruct
@@ -77,7 +77,7 @@ One way to make structures in Julia fully immutable is to use SVector or SMatrix
 
 Below is a working example of how ModelObjectTools.jl can be used in combination with StaticArrays to create an equilibrium-solving procedure that yields an immutable Equilibrium object. It also shows other useful functions provided by ModelObjectTools.jl:
 
-```
+```julia
 using ModelObjectTools, StaticArrays, LeastSquaresOptim
 
 @modef struct Params
